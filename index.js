@@ -28,6 +28,7 @@ var typedoc = require('typedoc');
 var clone = require('lodash.clone');
 var merge = require('lodash.merge');
 var path = require('path');
+var { TSConfigReader } = require('typedoc/dist/lib/utils/options/readers');
 
 function TypedocWebpackPlugin(options, input) {
 	this.inputFiles = ['./'];
@@ -46,6 +47,7 @@ function TypedocWebpackPlugin(options, input) {
 
   	// merge user options into default options and assign
   	merge(this.defaultTypedocOptions, options);
+
 		this.typeDocOptions = this.defaultTypedocOptions;
 
 		//only set default output directory if neither out or json properties are set
@@ -61,7 +63,7 @@ function TypedocWebpackPlugin(options, input) {
 TypedocWebpackPlugin.prototype.apply = function(compiler) {
 	var self = this;
 
-	compiler.plugin('emit', function(compilation, callback) 
+	compiler.hooks.emit.tapAsync('typedoc', function(compilation, callback) 
 	{
 		// get list of files that has been changed
 		var changedFiles = Object.keys(compilation.fileTimestamps).filter(function(watchfile) {
@@ -103,9 +105,11 @@ TypedocWebpackPlugin.prototype.apply = function(compiler) {
 			}
 
 			var typedocApp = new typedoc.Application(typedocOptions);
+			typedocApp.options.addReader(new TSConfigReader());
+			typedocApp.bootstrap(typedocOptions)
 			var src = typedocApp.expandInputFiles(self.inputFiles);
 			var project = typedocApp.convert(src);
-		
+
 			if (project) {
 				if(typedocOptions.json) {
 					console.log('Generating typedoc json');
@@ -125,7 +129,7 @@ TypedocWebpackPlugin.prototype.apply = function(compiler) {
 		callback();
 	});
 
-	compiler.plugin('done', function (stats) {
+	compiler.hooks.done.tap('typedoc', function (stats) {
 		console.log('Typedoc finished generating');
 	});
 };
